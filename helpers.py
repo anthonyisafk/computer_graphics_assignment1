@@ -1,8 +1,9 @@
 from typing import Tuple
 import numpy as np
+import math
 
 
-def find_edges(verts2d) -> \
+def find_edges(verts2d: np.ndarray) -> \
 	Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 	"""
 	| Edge #i is described by:
@@ -47,7 +48,7 @@ def find_edges(verts2d) -> \
 	return xkmin, xkmax, ykmin, ykmax, mi, bi
 
 
-def find_intersecting_points(active_edges, xkmin, mi, bi, y):
+def find_intersecting_points(active_edges, xkmin, mi, bi, y) -> np.ndarray:
 	"""Finds the intersecting points of a scanline and the active edges
 
 	:param xkmin: Used in case m == \infty
@@ -55,13 +56,23 @@ def find_intersecting_points(active_edges, xkmin, mi, bi, y):
 
 	:returns: The lower and upper bound of the continuous filling interval
 	"""
-	intersect_points = np.empty((2), dtype=np.int)
+	intersect_points = np.empty((2), dtype=np.float32)
+	integer_values = np.empty((2), dtype=np.int)
 	for i in range(2):
 		m_i = mi[int(active_edges[i])]
 		b_i = bi[int(active_edges[i])]
 		if m_i == float("inf"):
 			intersect_points[i] = xkmin[int(active_edges[i])]
 		else:  # if m == 0 we don't need to change the active points
-			intersect_points[i] = round((y + 1 - b_i) / m_i)
+			intersect_points[i] = (y - b_i) / m_i
 
-	return np.sort(intersect_points)
+	# Check if the point is at the rightmost or leftmost part - process accordingly.
+	if intersect_points[0] > intersect_points[1]:
+		integer_values[0] = math.floor(intersect_points[1])
+		integer_values[1] = math.ceil(intersect_points[0])
+	else:
+		integer_values[0] = math.floor(intersect_points[0])
+		integer_values[1] = math.ceil(intersect_points[1])
+
+	del intersect_points
+	return integer_values

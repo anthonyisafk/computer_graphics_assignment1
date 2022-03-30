@@ -27,13 +27,7 @@ def interpolate_color(x1, x2, x, C1, C2) -> np.ndarray:
 	return value
 
 
-def get_flat_color(vcolors):
+def get_flat_color(vcolors: np.ndarray) -> np.ndarray:
 	"""Calculates the unweighted mean of the RGB values from a set of vertices."""
-	n = len(vcolors)
-	color = np.empty((3), dtype=np.float32)
-	for i in range(n):
-		for j in range(3):
-			color[j] += vcolors[i][j]
-	color = [color[i] / n for i in range(3)]
-
+	color = np.mean(vcolors, axis=1)
 	return color
