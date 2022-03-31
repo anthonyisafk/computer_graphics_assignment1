@@ -4,7 +4,7 @@ from helpers import *
 import numpy as np
 
 
-def render(verts2d, faces, vcolors, depth, shade_t, M=512, N=512, show=False):
+def render(verts2d, faces, vcolors, depth, shade_t, M=512, N=512, refresh=False):
 	if shade_t != "flat" and shade_t != "gouraud":
 		raise Exception("\"shade_t\" can either be \"flat\" or \"gouraud\"!")
 
@@ -19,15 +19,18 @@ def render(verts2d, faces, vcolors, depth, shade_t, M=512, N=512, show=False):
 	triangle_depth = np.empty((triangles_num))
 	for i in range(triangles_num):
 		triangle_depth[i] = np.mean(depth[faces[i]])
-	sorted_triangle_depth_idx = np.argsort(triangle_depth)[::-1]
+	sorted_triangle_depth_idx = np.argsort(triangle_depth)[::-1] # sort in descending order
 
-	if not show:
+	if not refresh:
 		for idx in sorted_triangle_depth_idx:
 			img = shade_triangle(img, verts2d[faces[idx]], vcolors[faces[idx]], shade_t)
+		cv.imshow(f"Rendered image with shade_t = {shade_t}", img)
+		cv.waitKey(0)
+		cv.destroyAllWindows()
 	else:
 		for idx in sorted_triangle_depth_idx:
 			img = shade_triangle(img, verts2d[faces[idx]], vcolors[faces[idx]], shade_t)
-			cv.imshow(f"Render - shade_t = {shade_t}", img)
+			cv.imshow(f"Rendering image with shade_t = {shade_t}", img)
 			cv.waitKey(1)
 
 	return img
@@ -54,33 +57,11 @@ def shade_triangle_flat(img, ykmin, ykmax, xkmin, xkmax, mi, bi, flat_color):
 	# Find the active points of the second iteration either way.
 	ymin = min(ykmin)
 	ymax = max(ykmax)
-	active_edges = np.array([])
-	active_points = np.empty((2), dtype=np.int) # use this as [start, end] since the points are always contiguous
 	has_horizontal_edges = np.count_nonzero(mi) != 3 # check for horizontal edge
-	horizontal_edge_first = False # keep track if the horizontal edge is first or last
 
-	if has_horizontal_edges: # check if the first edge is horizontal
-		for i in range(3):
-			if mi[i] == 0:
-				if ykmin[i] == ymin:
-					horizontal_edge_first = True
-					active_points = np.sort(np.array([xkmin[i], xkmax[i]]))
-					active_edges = np.arange(3)
-					active_edges = active_edges[active_edges != i] # exclude the current edge from the active ones.
-					break
-				else:
-					for i in range(3):
-						if ykmin[i] == ymin:
-							active_edges = np.append(active_edges, i)
-					active_points = find_intersecting_points(active_edges, xkmin, mi, bi, ymin + 1)
-		if horizontal_edge_first:
-			for point in range(active_points[0], active_points[1]):
-				img[ymin][point] = flat_color
-	else:
-		for i in range(3):
-			if ykmin[i] == ymin:
-				active_edges = np.append(active_edges, i)
-		active_points = find_intersecting_points(active_edges, xkmin, mi, bi, ymin + 1)
+	img, active_edges, active_points, horizontal_edge_first = flat_handle_first_edge(
+		img, ykmin, ymin, xkmin, xkmax, mi, bi, has_horizontal_edges, flat_color
+	)
 
 	for y in range(ymin, ymax):
 		for point in range(active_points[0], active_points[1]):
@@ -97,4 +78,5 @@ def shade_triangle_flat(img, ykmin, ykmax, xkmin, xkmax, mi, bi, flat_color):
 
 def shade_triangle_gouraud(img, ykmin, ykmax, xkmin, xkmax, mi, bi, vcolors):
 	pass
+
 

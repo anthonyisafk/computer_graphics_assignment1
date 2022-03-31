@@ -14,8 +14,8 @@ def interpolate_color(x1, x2, x, C1, C2) -> np.ndarray:
 	"""
 	if x2 == x1:
 		raise Exception("x2 == x1: Cannot divide by zero!")
-	value = np.empty((3), dtype=np.float32)
-	interp_coeffs = np.empty((2), dtype=np.float32)
+	value = np.empty((3))
+	interp_coeffs = np.empty((2))
 
 	# No need to check for sign. The two operands cancel each other out in case of negativity.
 	# This happens because x is supposed to be between x1 and x2.

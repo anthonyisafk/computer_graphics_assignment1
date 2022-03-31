@@ -7,11 +7,7 @@ if __name__ == "__main__":
 	faces = data['faces']
 	depth = data['depth']
 
-	img = render(verts2d, faces, vcolors, depth, "flat", show=True)
-
-	cv.imshow("Flat coloring test", img)
-	cv.waitKey(0)
-	cv.destroyAllWindows()
+	img = render(verts2d, faces, vcolors, depth, "flat", refresh=False)
 
 
 
