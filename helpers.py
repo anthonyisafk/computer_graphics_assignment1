@@ -1,12 +1,13 @@
 from typing import Tuple
+from color import interpolate_color
 import numpy as np
 import math
 
-
 def find_edges(verts2d: np.ndarray) -> \
-	Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+	Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+		  np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 	"""
-	| Edge #i is described by:
+	| Edge #i consists of vertices i and i+1 and is described by:
 	| xkmin[i]-xkmax[i]
 	| ykmin[i]-ykmax[i]
 	| mi[i] and bi[i] (as in y = m*x + b)
@@ -15,97 +16,150 @@ def find_edges(verts2d: np.ndarray) -> \
 	xkmin = np.empty((3), dtype=np.int)
 	ykmax = np.empty((3), dtype=np.int)
 	ykmin = np.empty((3), dtype=np.int)
-	mi = np.empty((3))
-	bi = np.empty((3))
+	mi = np.empty((3), dtype=np.float16)
+	bi = np.empty((3), dtype=np.float16)
+	# Keep who owns the minimum and maximum y([0]) and x([1]) values
+	min_owners = np.empty((3, 2), dtype=np.int)
+	max_owners = np.empty((3, 2), dtype=np.int)
 
 	for i in range(3):
 		# Use `(i + 1) % 3` to account for the last iteration going out of bounds.
+		next_vertex = (i + 1) % 3
 		xstart = verts2d[i][1]
-		xend = verts2d[(i + 1) % 3][1]
+		xend = verts2d[next_vertex][1]
 		ystart = verts2d[i][0]
-		yend = verts2d[(i + 1) % 3][0]
+		yend = verts2d[next_vertex][0]
 
 		if xstart >= xend:
 			xkmax[i] = xstart
 			xkmin[i] = xend
+			max_owners[i, 1] = i
+			min_owners[i, 1] = next_vertex
 		else:
 			xkmax[i] = xend
 			xkmin[i] = xstart
+			max_owners[i, 1] = next_vertex
+			min_owners[i, 1] = i
 		if ystart >= yend:
 			ykmax[i] = ystart
 			ykmin[i] = yend
+			max_owners[i, 0] = i
+			min_owners[i, 0] = next_vertex
 		else:
 			ykmax[i] = yend
 			ykmin[i] = ystart
+			max_owners[i, 0] = next_vertex
+			min_owners[i, 0] = i
 
 		if xstart == xend:
 			mi[i] = float("inf")
 			bi[i] = 0
 		else:
+			# Keep in mind: y = mx + b => b = y - mx
 			mi[i] = (ystart - yend) / (xstart - xend)
-			bi[i] = ystart - mi[i] * xstart
+			# We have to make a calculation that is as precise as possible,
+			# so we use both of the equations we have available.
+			bi[i] = np.mean([ystart - mi[i] * xstart, yend - mi[i] * xend])
 
-	return xkmin, xkmax, ykmin, ykmax, mi, bi
+	return xkmin, xkmax, ykmin, ykmax, max_owners, min_owners, mi, bi
 
 
-def find_intersecting_points(active_edges, xkmin, mi, bi, y) -> np.ndarray:
+def find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, y):
 	"""Finds the intersecting points of a scanline and the active edges
-
-	:param xkmin: Used in case m == \infty
-	:param y: The y coordinate of the scanline
 
 	:returns: The lower and upper bound of the continuous filling interval
 	"""
-	intersect_points = np.empty((2), dtype=np.float32)
-	integer_values = np.empty((2), dtype=np.int)
+	intersect_points = np.empty((2), dtype=np.int)
 	for i in range(2):
-		m_i = mi[int(active_edges[i])]
-		b_i = bi[int(active_edges[i])]
-		if m_i == float("inf") or m_i == 0:
-			intersect_points[i] = xkmin[int(active_edges[i])]
-		else:  # if m == 0 we don't need to change the active points
-			intersect_points[i] = (y - b_i) / m_i
+		active_edge = active_edges[i]
+		m_i = mi[active_edge]
+		b_i = bi[active_edge]
+		if m_i == float("inf"):
+			intersect_points[i] = xkmin[active_edge]
+		elif m_i == 0:
+			intersect_points = np.array([xkmin[active_edge], xkmax[active_edge]])
+			break
+		else:
+			intersect_points[i] = np.round((y - b_i) / m_i)
 
-	# Check if the point is at the rightmost or leftmost part - process accordingly.
-	if intersect_points[0] > intersect_points[1]:
-		integer_values[0] = math.floor(intersect_points[1])
-		integer_values[1] = math.ceil(intersect_points[0])
-	else:
-		integer_values[0] = math.floor(intersect_points[0])
-		integer_values[1] = math.ceil(intersect_points[1])
-
-	del intersect_points
-	return integer_values
+	intersect_points = np.sort(intersect_points)
+	return intersect_points
+	# return np.array([math.ceil(intersect_points[0]), math.floor(intersect_points[1])])
 
 
 def flat_handle_first_edge(
-	img, ykmin, ymin, xkmin, xkmax, mi, bi,
-	has_horizontal_edges, flat_color
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
-	horizontal_edge_first = False
-	active_edges = np.array([])
+	img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, first_edge_horizontal, flat_color
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+	active_edges = np.array([], dtype=np.int)
 	active_points = np.empty((2), dtype=np.int) # use this as [start, end] since the points are always contiguous
-	if has_horizontal_edges:
+	if first_edge_horizontal:
 		for i in range(3):
-			if mi[i] == 0: # check if the first edge is horizontal
-				if ykmin[i] == ymin:
-					horizontal_edge_first = True
-					active_points = np.sort(np.array([xkmin[i], xkmax[i]]))
-					active_edges = np.arange(3)
-					active_edges = active_edges[active_edges != i] # exclude the current edge from the active ones.
-					break
-				else:
-					for i in range(3):
-						if ykmin[i] == ymin:
-							active_edges = np.append(active_edges, i)
-					active_points = find_intersecting_points(active_edges, xkmin, mi, bi, ymin + 1)
-		if horizontal_edge_first:
-			for point in range(active_points[0], active_points[1]):
-				img[ymin][point] = flat_color
+			if ykmin[i] == ykmax[i]: # check if the first edge is horizontal
+				active_points = np.sort(np.array([xkmin[i], xkmax[i]]))
+				active_edges = np.arange(3)
+				active_edges = active_edges[active_edges != i] # exclude the current edge from the active ones.
+				break
 	else:
 		for i in range(3):
 			if ykmin[i] == ymin:
 				active_edges = np.append(active_edges, i)
-		active_points = find_intersecting_points(active_edges, xkmin, mi, bi, ymin + 1)
+		active_edges = active_edges[np.argsort(xkmin[active_edges])]
+		vertex = int(verts2d[active_edges[0]][1])
+		active_points = np.array([vertex, vertex])
 
-	return img, active_edges, active_points, horizontal_edge_first
+	return img, active_edges, active_points
+
+
+def gouraud_handle_first_edge(
+	img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, min_owners, first_edge_horizontal
+):
+	active_edges = np.array([], dtype=np.int)
+	active_points = np.empty((2), dtype=np.int) # use this as [start, end] since the points are always contiguous
+	if first_edge_horizontal:
+		for i in range(3):
+			if ykmin[i] == ykmax[i]:
+				active_points = np.array([xkmin[i], xkmax[i]])
+				active_edges = np.arange(3)
+				active_edges = active_edges[active_edges != i] # exclude the current edge from the active ones.
+				break
+	else:
+		for i in range(3):
+			if ykmin[i] == ymin:
+				active_edges = np.append(active_edges, i)
+		active_edges = active_edges[np.argsort(xkmin[active_edges])]
+		active_points = find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, ymin)
+		# print(f"ykmin = {ykmin}, ymin = {ymin}, active_edges = {active_edges}, active points = {active_points}")
+
+	order = np.argsort(active_points)
+	return img, active_edges[order], np.sort(active_points)
+
+
+def gouraud_outline_and_interpolate(
+	img, vcolors, active_edges, active_points, min_owners, max_owners,
+	ykmin, ykmax, xkmin, xkmax, ymin, ymax, mi, bi
+):
+	all = np.arange(3)
+	for y in range(ymin, ymax + 1):
+		if ykmin[active_edges[0]] == ykmax[active_edges[0]]:
+			print("Found horizontal edge in gouraud_outline_and_interpolate()")
+		else:
+			for i in range(2):
+				p = active_edges[i]
+				ymin_p = ykmin[p]
+				ymax_p = ykmax[p]
+				C1 = vcolors[min_owners[p, 0]]
+				C2 = vcolors[max_owners[p, 0]]
+				img[y][active_points[i]] = interpolate_color(ymin_p, ymax_p, y, C1, C2)
+
+		C1 = img[y][active_points[0]]
+		C2 = img[y][active_points[1]]
+		for p in range(active_points[0] + 1, active_points[1]):
+			img[y][p] = interpolate_color(active_points[0], active_points[1], p, C1, C2)
+
+		extra_edge = np.delete(all, active_edges) # keep the edge that is not active
+		for i in range(2): # check for new edges, this means an old one will be replaced
+			if ykmax[int(active_edges[i])] == y:
+				active_edges[i] = extra_edge
+		active_points = find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, y + 1)
+
+	return img

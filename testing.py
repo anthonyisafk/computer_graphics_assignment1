@@ -7,7 +7,10 @@ if __name__ == "__main__":
 	faces = data['faces']
 	depth = data['depth']
 
-	img = render(verts2d, faces, vcolors, depth, "flat", refresh=False)
+	img = render(verts2d, faces, vcolors, depth, "gouraud", refresh=False)
+
+	# img = img * 255
+	# cv.imwrite("flat.jpg", img)
 
 
 

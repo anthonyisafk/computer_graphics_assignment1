@@ -13,21 +13,15 @@ def interpolate_color(x1, x2, x, C1, C2) -> np.ndarray:
 	:returns: The RGB values of point x
 	"""
 	if x2 == x1:
-		raise Exception("x2 == x1: Cannot divide by zero!")
+		return C1
 	value = np.empty((3))
-	interp_coeffs = np.empty((2))
-
-	# No need to check for sign. The two operands cancel each other out in case of negativity.
-	# This happens because x is supposed to be between x1 and x2.
-	interp_coeffs[0] = (x - x1) / (x2 - x1)
-	interp_coeffs[1] = 1 - interp_coeffs[0]
 	for i in range(3):
-		value[i] = interp_coeffs[0] * C1[i] + interp_coeffs[1] * C2[i]
+		value[i] = np.interp(x, [x1, x2], [C1[i], C2[i]])
 
 	return value
 
 
 def get_flat_color(vcolors: np.ndarray) -> np.ndarray:
 	"""Calculates the unweighted mean of the RGB values from a set of vertices."""
-	color = np.mean(vcolors, axis=1)
+	color = np.mean(vcolors, axis=0)
 	return color
