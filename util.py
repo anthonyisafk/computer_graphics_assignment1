@@ -1,7 +1,6 @@
 import cv2 as cv
 from color import *
 from helpers import *
-import numpy as np
 
 
 def render(verts2d, faces, vcolors, depth, shade_t, M=512, N=512, refresh=False):
@@ -67,7 +66,7 @@ def shade_triangle_flat(img, verts2d, ykmin, ykmax, xkmin, xkmax, mi, bi, flat_c
 	has_horizontal_edges = np.all(ykmin == ymin) # check for horizontal edge
 
 	img, active_edges, active_points = flat_handle_first_edge(
-		img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, has_horizontal_edges, flat_color
+		img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, has_horizontal_edges
 	)
 
 	for y in range(ymin, ymax + 1):

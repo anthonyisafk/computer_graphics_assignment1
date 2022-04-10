@@ -82,13 +82,13 @@ def find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, y):
 		else:
 			intersect_points[i] = np.round((y - b_i) / m_i)
 
-	intersect_points = np.sort(intersect_points)
-	return intersect_points
-	# return np.array([math.ceil(intersect_points[0]), math.floor(intersect_points[1])])
+	return np.sort(intersect_points)
+	# return intersect_points
+	# return np.array([math.floor(intersect_points[0]), math.ceil(intersect_points[1])])
 
 
 def flat_handle_first_edge(
-	img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, first_edge_horizontal, flat_color
+	img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, first_edge_horizontal
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 	active_edges = np.array([], dtype=np.int)
 	active_points = np.empty((2), dtype=np.int) # use this as [start, end] since the points are always contiguous
@@ -127,10 +127,11 @@ def gouraud_handle_first_edge(
 			if ykmin[i] == ymin:
 				active_edges = np.append(active_edges, i)
 		active_edges = active_edges[np.argsort(xkmin[active_edges])]
+		# vertex = int(verts2d[active_edges[0]][1])
+		# active_points = np.array([vertex, vertex])
 		active_points = find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, ymin)
-		# print(f"ykmin = {ykmin}, ymin = {ymin}, active_edges = {active_edges}, active points = {active_points}")
 
-	order = np.argsort(active_points)
+	order = np.argsort(xkmin[active_edges])
 	return img, active_edges[order], np.sort(active_points)
 
 
@@ -140,8 +141,10 @@ def gouraud_outline_and_interpolate(
 ):
 	all = np.arange(3)
 	for y in range(ymin, ymax + 1):
-		if ykmin[active_edges[0]] == ykmax[active_edges[0]]:
-			print("Found horizontal edge in gouraud_outline_and_interpolate()")
+		# if False:
+		if np.any(mi[active_edges] == 0):
+			# print("Found horizontal edge in gouraud_outline_and_interpolate()")
+			pass
 		else:
 			for i in range(2):
 				p = active_edges[i]
