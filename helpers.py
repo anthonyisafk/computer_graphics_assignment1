@@ -88,7 +88,7 @@ def find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, y):
 
 
 def flat_handle_first_edge(
-	img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, first_edge_horizontal
+	img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, first_edge_horizontal
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 	active_edges = np.array([], dtype=np.int)
 	active_points = np.empty((2), dtype=np.int) # use this as [start, end] since the points are always contiguous
@@ -127,8 +127,6 @@ def gouraud_handle_first_edge(
 			if ykmin[i] == ymin:
 				active_edges = np.append(active_edges, i)
 		active_edges = active_edges[np.argsort(xkmin[active_edges])]
-		# vertex = int(verts2d[active_edges[0]][1])
-		# active_points = np.array([vertex, vertex])
 		active_points = find_intersecting_points(active_edges, xkmin, xkmax, mi, bi, ymin)
 
 	order = np.argsort(xkmin[active_edges])

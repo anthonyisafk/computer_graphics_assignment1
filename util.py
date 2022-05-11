@@ -66,14 +66,13 @@ def shade_triangle_flat(img, verts2d, ykmin, ykmax, xkmin, xkmax, mi, bi, flat_c
 	has_horizontal_edges = np.all(ykmin == ymin) # check for horizontal edge
 
 	img, active_edges, active_points = flat_handle_first_edge(
-		img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, mi, bi, has_horizontal_edges
+		img, verts2d, ykmin, ykmax, ymin, xkmin, xkmax, has_horizontal_edges
 	)
 
 	for y in range(ymin, ymax + 1):
 		for point in range(active_points[0], active_points[1]):
 			img[y][point] = flat_color
 
-		extra_edge = np.delete(all, active_edges) # the edge that is going to replace the old one(s)
 		for i in range(2): # check for new edges, this means an old one will be replaced
 			if ykmax[int(active_edges[i])] == y:
 				replace = np.arange(3)
